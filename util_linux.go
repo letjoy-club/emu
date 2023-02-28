@@ -15,7 +15,6 @@ func UploadSmallFiles(filename string, folder string, file multipart.File) (ret 
 	sub := time.Now().Format("01021504")
 	workDir, _ := os.Getwd()
 	filesDir := fpath.Join(workDir, folder, filename+"_"+sub)
-	os.MkdirAll(fpath.Dir(filesDir), os.ModePerm)
 	out, err := os.Create(filesDir)
 	if err != nil {
 		return "", err

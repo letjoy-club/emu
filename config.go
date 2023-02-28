@@ -8,6 +8,7 @@ import (
 )
 
 func readConfigFromFile(configPath string) (*Config, error) {
+	mkdir()
 	// Read config file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -18,6 +19,12 @@ func readConfigFromFile(configPath string) (*Config, error) {
 	err = yaml.Unmarshal(data, &config)
 	// Return config
 	return &config, err
+}
+
+func mkdir() {
+	os.MkdirAll("service", 0755)
+	os.MkdirAll("log", 0755)
+	os.MkdirAll("binary", 0755)
 }
 
 type BasicAuth struct {
@@ -33,16 +40,15 @@ type Config struct {
 }
 
 type Service struct {
-	Name       string `yaml:"name" json:"name"`
-	Exec       string `yaml:"exec" json:"exec"`
-	WorkingDir string `yaml:"working-dir" json:"workingDir"`
+	Name string `yaml:"name" json:"name"`
+	Exec string `yaml:"exec" json:"exec"`
 
 	Env  []string `yaml:"env" json:"env"`
 	Args []string `yaml:"args" json:"args"`
 }
 
 func (s *Service) ExecPath() string {
-	return filepath.Join(s.WorkingDir, s.Exec)
+	return filepath.Join("service", s.Exec)
 }
 
 func GenerateDefault() *Config {

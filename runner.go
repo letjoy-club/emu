@@ -38,7 +38,6 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel) error {
 	defer reader.Close()
 	defer fmt.Println("reader closed")
 	content := make([]byte, 1024*2)
-	os.MkdirAll("log", 0755)
 	log.SetOutput(&lumberjack.Logger{
 		Filename:   fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, channel),
 		MaxSize:    100,
@@ -89,15 +88,12 @@ func (r *Runner) Start() error {
 }
 
 func NewRunner(service *Service, mode Mode) *Runner {
-	if service.WorkingDir == "" {
-		service.WorkingDir = "."
-	}
 	exe := service.Exec
 	if !strings.HasPrefix(service.Exec, "./") {
 		exe = "./" + service.Exec
 	}
 	cmd := exec.Command(exe, service.Args...)
-	cmd.Dir = service.WorkingDir
+	cmd.Dir = "service"
 	cmd.Env = service.Env
 
 	return &Runner{cmd: cmd, name: service.Name, exec: service.Exec, mode: mode}

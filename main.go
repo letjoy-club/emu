@@ -1,9 +1,12 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
+	"log"
 	"net/http"
 	"os"
 
@@ -12,6 +15,9 @@ import (
 	"github.com/go-chi/render"
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed static
+var static embed.FS
 
 type Resp struct {
 	Data interface{} `json:"data"`
@@ -57,11 +63,9 @@ func main() {
 	}
 
 	r := chi.NewRouter()
-
 	r.Use(middleware.DefaultLogger)
-
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		data, err := os.ReadFile("./static/index.html")
+		data, err := static.ReadFile("static/index.html")
 		if err != nil {
 			w.Write([]byte(err.Error()))
 			return
@@ -69,7 +73,14 @@ func main() {
 		w.Write(data)
 	})
 
-	fs := http.FileServer(http.Dir("./static/"))
+	var staticFS = fs.FS(static)
+	htmlContent, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fs := http.FileServer(http.FS(htmlContent))
+
+	// fs := http.FileServer(http.Dir("./static/"))
 	r.Handle("/static/*", http.StripPrefix("/", fs))
 
 	r.Route("/api", func(r chi.Router) {

@@ -1,5 +1,8 @@
 build:
-	CGO_ENABLED=0	go build
+	CGO_ENABLED=0 go build
+
+start:
+	./emu
 
 web:
 	cd web && yarn build

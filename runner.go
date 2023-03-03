@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -18,6 +19,9 @@ type Runner struct {
 	cmd  *exec.Cmd
 
 	mode Mode
+
+	onStart func()
+	onStop  func()
 }
 
 type Channel string
@@ -34,7 +38,33 @@ var (
 	Prod    Mode = "prod"
 )
 
-func (r *Runner) read(reader io.ReadCloser, channel Channel) error {
+type File struct {
+	Name string `json:"name"`
+	Size int    `json:"size"`
+}
+
+func (r *Runner) LogFiles() []File {
+	files := []File{
+		{
+			Name: fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, Stdout),
+		},
+		{
+			Name: fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, Stderr),
+		},
+	}
+	ret := []File{}
+	for _, file := range files {
+		fs, err := os.Stat(file.Name)
+		if err != nil {
+			continue
+		}
+		file.Size = int(fs.Size())
+		ret = append(ret, file)
+	}
+	return ret
+}
+
+func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup) error {
 	defer reader.Close()
 	defer fmt.Println("reader closed")
 	content := make([]byte, 1024*2)
@@ -46,6 +76,7 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel) error {
 	})
 	for {
 		if n, err := reader.Read(content); err != nil {
+			wg.Done()
 			return err
 		} else {
 			str := string(content[:n])
@@ -62,6 +93,7 @@ func (r *Runner) Stop() error {
 		}
 		r.cmd.Process.Signal(os.Interrupt)
 		time.Sleep(time.Second)
+		defer r.onStop()
 		if r.cmd.ProcessState == nil || r.cmd.ProcessState.Exited() {
 			return nil
 		}
@@ -78,12 +110,20 @@ func (r *Runner) Start() error {
 	if err != nil {
 		return err
 	}
-	go r.read(stderr, Stderr)
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+	go r.read(stderr, Stderr, &wg)
 	stdout, err := r.cmd.StdoutPipe()
 	if err != nil {
 		return err
 	}
-	go r.read(stdout, Stdout)
+	go r.read(stdout, Stdout, &wg)
+
+	go func() {
+		wg.Wait()
+		r.onStop()
+	}()
+	r.onStart()
 	return r.cmd.Start()
 }
 
@@ -96,5 +136,16 @@ func NewRunner(service *Service, mode Mode) *Runner {
 	cmd.Dir = "service"
 	cmd.Env = service.Env
 
-	return &Runner{cmd: cmd, name: service.Name, exec: service.Exec, mode: mode}
+	return &Runner{
+		cmd:  cmd,
+		name: service.Name,
+		exec: service.Exec,
+		mode: mode,
+		onStart: func() {
+			service.Running = true
+		},
+		onStop: func() {
+			service.Running = false
+		},
+	}
 }

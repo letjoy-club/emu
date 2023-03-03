@@ -45,6 +45,8 @@ type Service struct {
 
 	Env  []string `yaml:"env" json:"env"`
 	Args []string `yaml:"args" json:"args"`
+
+	Running bool `yaml:"-" json:"running"`
 }
 
 func (s *Service) ExecPath() string {

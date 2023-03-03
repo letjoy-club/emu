@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -184,8 +185,23 @@ func main() {
 					}
 				})
 				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
+					service := getService(r, config.Services)
+					if service != nil {
+						runner := runners[service.Name]
+						files := runner.LogFiles()
+						render.JSON(w, r, NewData(files))
+					} else {
+						render.JSON(w, r, NewError(errors.New("service not found")))
+					}
 				})
 				r.Get("/log/{file}", func(w http.ResponseWriter, r *http.Request) {
+					file := chi.URLParam(r, "file")
+					reader, err := os.Open("log/" + file)
+					if err != nil {
+						render.JSON(w, r, NewError(err))
+						return
+					}
+					go io.Copy(w, reader)
 				})
 			})
 		})

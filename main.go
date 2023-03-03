@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -198,10 +199,18 @@ func main() {
 					file := chi.URLParam(r, "file")
 					reader, err := os.Open("log/" + file)
 					if err != nil {
+						fmt.Println(err)
 						render.JSON(w, r, NewError(err))
 						return
 					}
-					go io.Copy(w, reader)
+					w.Header().Set("Content-Disposition", "attachment; filename="+file)
+					fs, _ := reader.Stat()
+					size := fs.Size()
+					w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+					go func() {
+						io.Copy(w, reader)
+						reader.Close()
+					}()
 				})
 			})
 		})

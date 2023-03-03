@@ -46,15 +46,15 @@ type File struct {
 func (r *Runner) LogFiles() []File {
 	files := []File{
 		{
-			Name: fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, Stdout),
+			Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stdout),
 		},
 		{
-			Name: fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, Stderr),
+			Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stderr),
 		},
 	}
 	ret := []File{}
 	for _, file := range files {
-		fs, err := os.Stat(file.Name)
+		fs, err := os.Stat("log/" + file.Name)
 		if err != nil {
 			continue
 		}
@@ -66,7 +66,7 @@ func (r *Runner) LogFiles() []File {
 
 func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup) error {
 	defer reader.Close()
-	defer fmt.Println("reader closed")
+	defer fmt.Println(r.exec, "reader closed")
 	content := make([]byte, 1024*2)
 	log.SetOutput(&lumberjack.Logger{
 		Filename:   fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, channel),

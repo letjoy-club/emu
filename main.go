@@ -203,14 +203,12 @@ func main() {
 						render.JSON(w, r, NewError(err))
 						return
 					}
+					defer reader.Close()
 					w.Header().Set("Content-Disposition", "attachment; filename="+file)
 					fs, _ := reader.Stat()
 					size := fs.Size()
 					w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-					go func() {
-						io.Copy(w, reader)
-						reader.Close()
-					}()
+					io.Copy(w, reader)
 				})
 			})
 		})

@@ -68,12 +68,13 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup)
 	defer reader.Close()
 	defer fmt.Println(r.exec, "reader closed")
 	content := make([]byte, 1024*2)
-	log.SetOutput(&lumberjack.Logger{
+	loggerOut := &lumberjack.Logger{
 		Filename:   fmt.Sprintf("log/%s-%s.%s.log", r.exec, r.mode, channel),
 		MaxSize:    100,
 		MaxBackups: 3,
 		MaxAge:     28,
-	})
+	}
+	logger := log.New(loggerOut, "", log.LstdFlags)
 	for {
 		if n, err := reader.Read(content); err != nil {
 			wg.Done()
@@ -81,7 +82,7 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup)
 		} else {
 			str := string(content[:n])
 			fmt.Println(str)
-			log.Println(str)
+			logger.Println(str)
 		}
 	}
 }

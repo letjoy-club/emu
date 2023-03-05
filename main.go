@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -57,12 +56,8 @@ func main() {
 		panic(err)
 	}
 
-	runners := map[string]*Runner{}
-	for _, s := range config.Services {
-		runner := NewRunner(s, config.Mode)
-		runner.Start()
-		runners[s.Name] = runner
-	}
+	engine := Engine{}
+	engine.Init(config.Mode, config.Services)
 
 	r := chi.NewRouter()
 	r.Use(middleware.DefaultLogger)
@@ -93,28 +88,31 @@ func main() {
 			})
 
 			r.Route("/{service}", func(r chi.Router) {
+				r.Get("/clear", func(w http.ResponseWriter, r *http.Request) {
+					err := clearHistory()
+					render.JSON(w, r, NewData(err))
+				})
 				r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
-					render.JSON(w, r, NewData(service))
+					name := chi.URLParam(r, "service")
+					service := engine.GetService(name)
+					if service != nil {
+						render.JSON(w, r, NewData(service))
+					} else {
+						render.JSON(w, r, NewError(ErrServiceNotFound))
+					}
 				})
 				r.Post("/restart", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
-					if service != nil {
-						runner := runners[service.Name]
-						runner.Stop()
-						runner = NewRunner(service, config.Mode)
-						runners[service.Name] = runner
-						if err := runner.Start(); err != nil {
-							render.JSON(w, r, NewData(err))
-							return
-						}
+					name := chi.URLParam(r, "service")
+					err := engine.Restart(name)
+					if err == nil {
 						render.JSON(w, r, NewData(nil))
 					} else {
-						render.JSON(w, r, NewError(errors.New("service not found")))
+						render.JSON(w, r, NewError(err))
 					}
 				})
 				r.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
+					name := chi.URLParam(r, "service")
+					service := engine.GetService(name)
 					if service != nil {
 						defer r.Body.Close()
 						if err := r.ParseMultipartForm(1 << 20); err != nil {
@@ -139,60 +137,46 @@ func main() {
 							return
 						}
 
-						runner := runners[service.Name]
-						runner.Stop()
-
-						runner = NewRunner(service, config.Mode)
-						runners[service.Name] = runner
+						service.runner.Stop()
 
 						if err := os.Rename(filename, service.ExecPath()); err != nil {
 							render.JSON(w, r, NewError(err))
 							return
 						}
-						if err := runner.Start(); err != nil {
+						if err := service.runner.Start(); err != nil {
 							render.JSON(w, r, NewError(err))
 							return
 						}
 						render.JSON(w, r, NewData(nil))
 					} else {
-						render.JSON(w, r, NewError(errors.New("service not found")))
+						render.JSON(w, r, NewError(ErrServiceNotFound))
 					}
 				})
 				r.Post("/start", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
-					if service != nil {
-						runner := runners[service.Name]
-						runner.Stop()
-						runner = NewRunner(service, config.Mode)
-						runners[service.Name] = runner
-						err := runner.Start()
-						if err != nil {
-							render.JSON(w, r, err)
-							return
-						}
+					name := chi.URLParam(r, "service")
+					err := engine.StartService(name)
+					if err == nil {
 						render.JSON(w, r, NewData(nil))
 					} else {
-						render.JSON(w, r, NewError(errors.New("service not found")))
+						render.JSON(w, r, NewError(err))
 					}
 				})
 				r.Post("/stop", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
-					if service != nil {
-						runner := runners[service.Name]
-						runner.Stop()
+					name := chi.URLParam(r, "service")
+					err := engine.StopService(name)
+					if err == nil {
 						render.JSON(w, r, NewData(nil))
 					} else {
-						render.JSON(w, r, NewError(errors.New("service not found")))
+						render.JSON(w, r, NewError(err))
 					}
 				})
 				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
-					service := getService(r, config.Services)
+					name := chi.URLParam(r, "service")
+					service := engine.GetService(name)
 					if service != nil {
-						runner := runners[service.Name]
-						files := runner.LogFiles()
-						render.JSON(w, r, NewData(files))
+						render.JSON(w, r, NewData(service.runner.LogFiles()))
 					} else {
-						render.JSON(w, r, NewError(errors.New("service not found")))
+						render.JSON(w, r, NewError(ErrServiceNotFound))
 					}
 				})
 				r.Get("/log/{file}", func(w http.ResponseWriter, r *http.Request) {
@@ -212,6 +196,12 @@ func main() {
 				})
 			})
 		})
+
+		r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
+		})
+
+		r.Get("/log/{file}", func(w http.ResponseWriter, r *http.Request) {
+		})
 	})
 
 	if config.Port == 0 {
@@ -222,15 +212,4 @@ func main() {
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r); err != nil {
 		panic(err)
 	}
-}
-
-func getService(r *http.Request, services []*Service) *Service {
-	service := chi.URLParam(r, "service")
-	for _, s := range services {
-		if s.Exec == service {
-			fmt.Println("service found", s.Exec)
-			return s
-		}
-	}
-	return nil
 }

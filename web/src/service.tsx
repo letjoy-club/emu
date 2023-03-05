@@ -1,4 +1,4 @@
-import { Button, ButtonGroup, Dropdown, Spin, Tag, Toast, Upload } from "@douyinfe/semi-ui";
+import { Button, ButtonGroup, Dropdown, Space, Spin, Tag, TagGroup, Toast, Upload } from "@douyinfe/semi-ui";
 import { useContext, useRef, useState } from "react";
 import { IconRefresh, IconStop, IconPlay } from "@douyinfe/semi-icons";
 import { context } from "./context";
@@ -8,6 +8,10 @@ export type Service = {
   name: string;
   exec: string;
   running: boolean;
+
+  mem: number;
+  cpu: number;
+  connections: string[];
 };
 
 type LogFile = {
@@ -22,8 +26,26 @@ export function Service({ service }: { service: Service }) {
   const ctx = useContext(context);
   const [logLoading, setLogLoading] = useState(false);
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
+
+  const tags = service.connections
+    .filter((c) => !c.startsWith("::"))
+    .map((c, i) => (
+      <Tag type="solid" key={i}>
+        端口：{c}
+      </Tag>
+    ));
+
   return (
     <div>
+      <Space>
+        {tags}
+        <Tag type="ghost">
+          <>内存：{filesize(service.mem)}</>
+        </Tag>
+        <Tag type="ghost">
+          <>CPU：{service.cpu.toFixed(4)}</>
+        </Tag>
+      </Space>
       <Upload
         action={`/api/service/${service.exec}/upload`}
         style={{ margin: "10px 0" }}

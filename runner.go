@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shirou/gopsutil/v3/process"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -18,10 +19,16 @@ type Runner struct {
 	exec string
 	cmd  *exec.Cmd
 
-	mode Mode
+	process *process.Process
+	mode    Mode
 
 	onStart func()
 	onStop  func()
+
+	mem         int
+	cpu         float64
+	connections []string
+	lastCheck   time.Time
 }
 
 type Channel string
@@ -103,6 +110,35 @@ func (r *Runner) Stop() error {
 	return nil
 }
 
+func (r *Runner) checkStat() {
+	if r.process == nil {
+		return
+	}
+	if !time.Now().After(r.lastCheck.Add(4 * time.Second)) {
+		return
+	}
+
+	mem, err := r.process.MemoryInfo()
+	if err == nil {
+		r.mem = int(mem.RSS)
+	}
+	cpu, _ := r.process.CPUPercent()
+	r.cpu = cpu
+
+	conns, err := r.process.Connections()
+	if err == nil {
+		addresses := []string{}
+		for _, conn := range conns {
+			addresses = append(addresses, fmt.Sprintf("%s:%d", conn.Laddr.IP, conn.Laddr.Port))
+		}
+		r.connections = addresses
+	} else {
+		r.connections = []string{}
+	}
+
+	r.lastCheck = time.Now()
+}
+
 func (r *Runner) Start() error {
 	if r.cmd.Process != nil && r.cmd.ProcessState != nil && r.cmd.ProcessState.Exited() {
 		return nil
@@ -125,7 +161,17 @@ func (r *Runner) Start() error {
 		r.onStop()
 	}()
 	r.onStart()
-	return r.cmd.Start()
+	if err := r.cmd.Start(); err != nil {
+		return err
+	}
+	if r.cmd.Process != nil {
+		p, err := process.NewProcess(int32(r.cmd.Process.Pid))
+		if err != nil {
+			return err
+		}
+		r.process = p
+	}
+	return nil
 }
 
 func NewRunner(service *Service, mode Mode) *Runner {
@@ -148,5 +194,6 @@ func NewRunner(service *Service, mode Mode) *Runner {
 		onStop: func() {
 			service.Running = false
 		},
+		connections: []string{},
 	}
 }

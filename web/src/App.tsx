@@ -1,4 +1,4 @@
-import { Badge, Collapse, Descriptions, Tag } from "@douyinfe/semi-ui";
+import { Badge, Collapse, Tag } from "@douyinfe/semi-ui";
 import { useEffect, useState } from "react";
 import { Service } from "./service";
 import { Typography } from "@douyinfe/semi-ui";

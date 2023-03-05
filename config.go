@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 
@@ -47,6 +48,30 @@ type Service struct {
 	Args []string `yaml:"args" json:"args"`
 
 	Running bool `yaml:"-" json:"running"`
+
+	runner *Runner `yaml:"-" json:"-"`
+}
+
+func (s *Service) MarshalJSON() ([]byte, error) {
+	s.runner.checkStat()
+	swp := ServiceWithProcess{
+		Name:        s.Name,
+		Exec:        s.Exec,
+		Running:     s.Running,
+		Mem:         s.runner.mem,
+		CPU:         s.runner.cpu,
+		Connections: s.runner.connections,
+	}
+	return json.Marshal(swp)
+}
+
+type ServiceWithProcess struct {
+	Name        string   `json:"name"`
+	Exec        string   `json:"exec"`
+	Running     bool     `json:"running"`
+	Mem         int      `json:"mem"`
+	CPU         float64  `json:"cpu"`
+	Connections []string `json:"connections"`
 }
 
 func (s *Service) ExecPath() string {

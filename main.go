@@ -56,11 +56,12 @@ func main() {
 		panic(err)
 	}
 
+	go hub.Start()
 	engine := Engine{}
 	engine.Init(config.Mode, config.Services)
 
 	r := chi.NewRouter()
-	r.Use(middleware.DefaultLogger)
+	// r.Use(middleware.DefaultLogger)
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		data, err := static.ReadFile("static/index.html")
 		if err != nil {
@@ -137,13 +138,13 @@ func main() {
 							return
 						}
 
-						service.runner.Stop()
+						engine.StopService(name)
 
 						if err := os.Rename(filename, service.ExecPath()); err != nil {
 							render.JSON(w, r, NewError(err))
 							return
 						}
-						if err := service.runner.Start(); err != nil {
+						if err := engine.StartService(name); err != nil {
 							render.JSON(w, r, NewError(err))
 							return
 						}
@@ -169,6 +170,27 @@ func main() {
 					} else {
 						render.JSON(w, r, NewError(err))
 					}
+				})
+				r.Get("/output", func(w http.ResponseWriter, r *http.Request) {
+					name := chi.URLParam(r, "service")
+					if engine.GetService(name) == nil {
+						render.JSON(w, r, NewError(ErrServiceNotFound))
+						return
+					}
+					conn, err := upgrader.Upgrade(w, r, nil)
+					if err != nil {
+						render.JSON(w, r, NewError(err))
+						return
+					}
+					hub.Join(name, conn)
+					// for {
+					// 	_, _, err := conn.ReadMessage()
+					// 	if err != nil {
+					// 		fmt.Println("err to leave", err)
+					// 		hub.Leave(conn)
+					// 		return
+					// 	}
+					// }
 				})
 				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
 					name := chi.URLParam(r, "service")

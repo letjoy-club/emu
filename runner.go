@@ -88,7 +88,7 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup)
 			return err
 		} else {
 			str := string(content[:n])
-			fmt.Println(str)
+			hub.msgC <- Msg{Content: str, Channel: r.exec}
 			logger.Println(str)
 		}
 	}

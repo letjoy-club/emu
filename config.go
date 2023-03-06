@@ -54,6 +54,10 @@ type Service struct {
 
 func (s *Service) MarshalJSON() ([]byte, error) {
 	s.runner.checkStat()
+	pid := 0
+	if s.runner.process != nil {
+		pid = int(s.runner.process.Pid)
+	}
 	swp := ServiceWithProcess{
 		Name:        s.Name,
 		Exec:        s.Exec,
@@ -61,11 +65,13 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 		Mem:         s.runner.mem,
 		CPU:         s.runner.cpu,
 		Connections: s.runner.connections,
+		PID:         pid,
 	}
 	return json.Marshal(swp)
 }
 
 type ServiceWithProcess struct {
+	PID         int      `json:"pid"`
 	Name        string   `json:"name"`
 	Exec        string   `json:"exec"`
 	Running     bool     `json:"running"`

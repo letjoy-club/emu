@@ -1,6 +1,6 @@
-import { Button, ButtonGroup, Dropdown, Space, Spin, Tag, TagGroup, Toast, Upload } from "@douyinfe/semi-ui";
+import { Button, ButtonGroup, Dropdown, Space, Spin, Tag, Toast, Upload } from "@douyinfe/semi-ui";
 import { useContext, useRef, useState } from "react";
-import { IconRefresh, IconStop, IconPlay } from "@douyinfe/semi-icons";
+import { IconRefresh, IconStop, IconPlay, IconTerminal, IconFile } from "@douyinfe/semi-icons";
 import { context } from "./context";
 import { filesize } from "filesize";
 
@@ -11,6 +11,7 @@ export type Service = {
 
   mem: number;
   cpu: number;
+  pid: number;
   connections: string[];
 };
 
@@ -27,23 +28,24 @@ export function Service({ service }: { service: Service }) {
   const [logLoading, setLogLoading] = useState(false);
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
 
-  const tags = service.connections
-    .filter((c) => !c.startsWith("::"))
-    .map((c, i) => (
-      <Tag type="solid" key={i}>
-        端口：{c}
-      </Tag>
-    ));
+  const tags = service.connections.map((c, i) => (
+    <Tag type="solid" key={i} color={c.startsWith(":::") ? "blue" : undefined}>
+      端口：{c}
+    </Tag>
+  ));
 
   return (
     <div>
-      <Space>
+      <Space wrap>
         {tags}
+        <Tag type="ghost">
+          <>PID：{service.pid}</>
+        </Tag>
         <Tag type="ghost">
           <>内存：{filesize(service.mem)}</>
         </Tag>
         <Tag type="ghost">
-          <>CPU：{service.cpu.toFixed(4)}</>
+          <>CPU：{service.cpu.toFixed(3)}%</>
         </Tag>
       </Space>
       <Upload
@@ -136,53 +138,59 @@ export function Service({ service }: { service: Service }) {
           )}
         </ButtonGroup>
         <div style={{ flex: 1 }}></div>
-        <Dropdown
-          trigger={"click"}
-          position={"bottomLeft"}
-          onVisibleChange={(visible) => {
-            if (visible) {
-              setLogLoading(true);
-              fetch(`/api/service/${service.exec}/log`)
-                .then((r) => r.json())
-                .then((res) => {
-                  if (res.error) {
-                    Toast.error(res.error);
-                  } else {
-                    setLogFiles(res.data);
-                  }
-                  setLogLoading(false);
-                });
-            } else {
-            }
-          }}
-          render={
-            logLoading ? (
-              <div style={{ padding: 20, paddingTop: 30 }}>
-                <Spin size="large" />
-              </div>
-            ) : (
-              <Dropdown.Menu>
-                {logFiles.map((f) => (
-                  <Dropdown.Item
-                    type="secondary"
-                    onClick={() => {
-                      window.open("/api/service/" + service.exec + "/log/" + f.name, "_blank");
-                    }}
-                  >
-                    <div>
-                      <div>{f.name}</div>
-                      <div style={{ fontSize: "0.8em" }}>
-                        <>{filesize(f.size, { base: 2, standard: "jedec" })}</>
+        <ButtonGroup>
+          <Dropdown
+            trigger={"click"}
+            position={"bottomLeft"}
+            onVisibleChange={(visible) => {
+              if (visible) {
+                setLogLoading(true);
+                fetch(`/api/service/${service.exec}/log`)
+                  .then((r) => r.json())
+                  .then((res) => {
+                    if (res.error) {
+                      Toast.error(res.error);
+                    } else {
+                      setLogFiles(res.data);
+                    }
+                    setLogLoading(false);
+                  });
+              } else {
+              }
+            }}
+            render={
+              logLoading ? (
+                <div style={{ padding: 20, paddingTop: 30 }}>
+                  <Spin size="large" />
+                </div>
+              ) : (
+                <Dropdown.Menu>
+                  {logFiles.map((f, i) => (
+                    <Dropdown.Item
+                      key={i}
+                      type="secondary"
+                      onClick={() => {
+                        window.open("/api/service/" + service.exec + "/log/" + f.name, "_blank");
+                      }}
+                    >
+                      <div>
+                        <div>{f.name}</div>
+                        <div style={{ fontSize: "0.8em" }}>
+                          <>{filesize(f.size, { base: 2, standard: "jedec" })}</>
+                        </div>
                       </div>
-                    </div>
-                  </Dropdown.Item>
-                ))}
-              </Dropdown.Menu>
-            )
-          }
-        >
-          <Button>日志</Button>
-        </Dropdown>
+                    </Dropdown.Item>
+                  ))}
+                </Dropdown.Menu>
+              )
+            }
+          >
+            <Button icon={<IconFile />}>日志</Button>
+          </Dropdown>
+          <Button icon={<IconTerminal />} onClick={() => ctx.setExec(service.exec)}>
+            输出
+          </Button>
+        </ButtonGroup>
       </div>
     </div>
   );

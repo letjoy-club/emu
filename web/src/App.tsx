@@ -34,7 +34,7 @@ function App() {
       }}
     >
       <Layout>
-        <Sider style={{ height: "100vh" }}>
+        <Sider style={{ height: "100vh", overflowY: "auto" }}>
           <div style={{ width: 400 }}>
             <Title style={{ padding: 10 }}>服务管理</Title>
             <Collapse>

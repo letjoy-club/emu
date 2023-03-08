@@ -100,12 +100,14 @@ func (r *Runner) Stop() error {
 			return nil
 		}
 		r.cmd.Process.Signal(os.Interrupt)
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 500)
 		defer r.onStop()
 		if r.cmd.ProcessState == nil || r.cmd.ProcessState.Exited() {
 			return nil
 		}
-		return r.cmd.Process.Kill()
+		r.cmd.Process.Kill()
+		time.Sleep(time.Millisecond * 100)
+		return r.cmd.Process.Release()
 	}
 	return nil
 }

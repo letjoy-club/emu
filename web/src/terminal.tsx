@@ -19,6 +19,7 @@ export function WebLog({ exec }: { exec: string }) {
       terminal.open(document.getElementById("terminal")!);
       terminal.clear();
       fitAddon.fit();
+      terminal.writeln(`Connected To Server: [${exec}]`);
 
       function resize() {
         fitAddon.fit();
@@ -28,7 +29,7 @@ export function WebLog({ exec }: { exec: string }) {
         `ws://` + (mode === "dev" ? "localhost:8080" : window.location.host) + `/api/service/${exec}/output`
       );
       ws.onmessage = (event) => {
-        terminal.writeln(event.data.trimEnd() as string);
+        terminal.writeln(event.data);
       };
 
       window.addEventListener("resize", resize);
@@ -42,7 +43,14 @@ export function WebLog({ exec }: { exec: string }) {
 
   return (
     <div
-      style={{ borderLeft: "1px solid #b1b1b1", background: "black", flex: 1, height: "100%", boxSizing: "border-box" }}
+      style={{
+        borderLeft: "1px solid #b1b1b1",
+        paddingLeft: 10,
+        background: "black",
+        flex: 1,
+        height: "100%",
+        boxSizing: "border-box",
+      }}
     >
       <div id="terminal" style={{ height: "100vh" }}></div>
     </div>

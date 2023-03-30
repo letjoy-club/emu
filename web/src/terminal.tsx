@@ -29,7 +29,13 @@ export function WebLog({ exec }: { exec: string }) {
         `ws://` + (mode === "dev" ? "localhost:8080" : window.location.host) + `/api/service/${exec}/output`
       );
       ws.onmessage = (event) => {
-        terminal.writeln(event.data);
+        if (typeof event.data === "string") {
+          if (event.data.endsWith("\n")) {
+            terminal.write(event.data + "\r");
+          } else {
+            terminal.writeln(event.data);
+          }
+        }
       };
 
       window.addEventListener("resize", resize);

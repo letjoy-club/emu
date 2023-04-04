@@ -30,11 +30,7 @@ export function WebLog({ exec }: { exec: string }) {
       );
       ws.onmessage = (event) => {
         if (typeof event.data === "string") {
-          if (event.data.endsWith("\n")) {
-            terminal.write(event.data + "\r");
-          } else {
-            terminal.writeln(event.data);
-          }
+          terminal.write(event.data.replaceAll("\n", "\r\n"));
         }
       };
 

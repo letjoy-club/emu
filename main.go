@@ -218,12 +218,6 @@ func main() {
 				})
 			})
 		})
-
-		r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
-		})
-
-		r.Get("/log/{file}", func(w http.ResponseWriter, r *http.Request) {
-		})
 	})
 
 	if config.Port == 0 {

@@ -129,7 +129,7 @@ func (h *NotificationHub) Start() {
 		case msg := <-h.msgC:
 			logger := h.loggers[msg.Channel]
 			if logger == nil {
-				logger = NewCircularBuffer(100)
+				logger = NewCircularBuffer(200)
 				h.loggers[msg.Channel] = logger
 			}
 			logger.Write([]byte(msg.Content))

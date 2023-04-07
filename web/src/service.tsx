@@ -12,6 +12,7 @@ export type Service = {
   mem: number;
   cpu: number;
   pid: number;
+  tag: string;
   connections: string[];
 };
 

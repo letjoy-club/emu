@@ -42,6 +42,7 @@ type Config struct {
 
 type Service struct {
 	Name string `yaml:"name" json:"name"`
+	Tag  string `yaml:"tag" json:"tag"`
 	Exec string `yaml:"exec" json:"exec"`
 
 	Env  []string `yaml:"env" json:"env"`
@@ -60,6 +61,7 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 	}
 	swp := ServiceWithProcess{
 		Name:        s.Name,
+		Tag:         s.Tag,
 		Exec:        s.Exec,
 		Running:     s.Running,
 		Mem:         s.runner.mem,
@@ -72,6 +74,7 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 
 type ServiceWithProcess struct {
 	PID         int      `json:"pid"`
+	Tag         string   `json:"tag"`
 	Name        string   `json:"name"`
 	Exec        string   `json:"exec"`
 	Running     bool     `json:"running"`
@@ -88,6 +91,7 @@ func GenerateDefault() *Config {
 	s := Service{
 		Name: "test",
 		Exec: "echo",
+		Tag:  "default",
 		Env:  []string{"TEST=1", "TEST=2"},
 		Args: []string{"-port=1", "-conf=local.config.yaml"},
 	}

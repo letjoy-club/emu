@@ -1,6 +1,6 @@
 import { Badge, Collapse, Layout, Tag } from "@douyinfe/semi-ui";
 import { useEffect, useState } from "react";
-import { Service } from "./service";
+import { Service, UploadModal } from "./service";
 import { Typography } from "@douyinfe/semi-ui";
 import { context } from "./context";
 import { WebLog } from "./terminal";
@@ -22,11 +22,9 @@ function App() {
         for (const service of r.data) {
           if (!tagColors.has(service.tag)) {
             const color = Colors.shift();
-            console.log(service.tag, color);
             tagColors.set(service.tag, color!);
           }
         }
-        console.log(tagColors);
         setServices(r.data);
       });
     const timer = setInterval(() => {
@@ -78,6 +76,7 @@ function App() {
                 </Collapse.Panel>
               ))}
             </Collapse>
+            <UploadModal />
           </div>
         </Sider>
 

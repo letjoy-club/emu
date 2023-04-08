@@ -1,8 +1,9 @@
-import { Button, ButtonGroup, Dropdown, Space, Spin, Tag, Toast, Upload } from "@douyinfe/semi-ui";
-import { useContext, useRef, useState } from "react";
-import { IconRefresh, IconStop, IconPlay, IconTerminal, IconFile } from "@douyinfe/semi-icons";
+import { Button, ButtonGroup, Dropdown, Modal, Space, Spin, Tag, Toast, Upload } from "@douyinfe/semi-ui";
+import { useContext, useEffect, useRef, useState } from "react";
+import { IconRefresh, IconStop, IconPlay, IconTerminal, IconFile, IconUpload } from "@douyinfe/semi-icons";
 import { context } from "./context";
 import { filesize } from "filesize";
+import { Subject } from "rxjs";
 
 export type Service = {
   name: string;
@@ -22,7 +23,6 @@ type LogFile = {
 };
 
 export function Service({ service }: { service: Service }) {
-  const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const ref = useRef<Upload>(null);
   const ctx = useContext(context);
@@ -37,60 +37,24 @@ export function Service({ service }: { service: Service }) {
 
   return (
     <div>
-      <Space wrap>
-        {tags}
-        <Tag type="ghost">
-          <>PID：{service.pid}</>
-        </Tag>
-        <Tag type="ghost">
-          <>内存：{filesize(service.mem)}</>
-        </Tag>
-        <Tag type="ghost">
-          <>CPU：{service.cpu.toFixed(3)}%</>
-        </Tag>
-      </Space>
-      <Upload
-        action={`/api/service/${service.exec}/upload`}
-        style={{ margin: "10px 0" }}
-        draggable={true}
-        dragMainText={"点击上传文件或拖拽文件到这里"}
-        name="file"
-        ref={ref}
-        fileName="binary"
-        afterUpload={(result) => {
-          setLoading(false);
-          if (result.response.error) {
-            Toast.error(result.response.error);
-          } else {
-            Toast.info("完成");
-          }
-          return {};
-        }}
-        beforeUpload={() => {
-          setLoading(true);
-          return true;
-        }}
-        onFileChange={(files) => {
-          if (files.length > 0) {
-            setFile(files[0]);
-          } else {
-            setFile(null);
-          }
-        }}
-        limit={1}
-        itemStyle={{ width: "100%" }}
-      ></Upload>
+      {service.running ? (
+        <Space wrap>
+          {tags}
+          <Tag type="ghost">
+            <>PID：{service.pid}</>
+          </Tag>
+          <Tag type="ghost">
+            <>内存：{filesize(service.mem)}</>
+          </Tag>
+          <Tag type="ghost">
+            <>CPU：{service.cpu.toFixed(3)}%</>
+          </Tag>
+        </Space>
+      ) : null}
       <div style={{ display: "flex" }}>
         <ButtonGroup>
-          <Button
-            icon={<IconRefresh />}
-            loading={loading}
-            disabled={!file}
-            onClick={async () => {
-              ref.current?.upload();
-            }}
-          >
-            更新
+          <Button icon={<IconUpload />} onClick={() => UploadModal$.next(service.exec)}>
+            上传
           </Button>
           {service.running ? (
             <Button
@@ -194,5 +158,68 @@ export function Service({ service }: { service: Service }) {
         </ButtonGroup>
       </div>
     </div>
+  );
+}
+
+const UploadModal$ = new Subject<string>();
+
+export function UploadModal() {
+  const [show, setShow] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const ref = useRef<Upload>(null);
+  const [exec, setExec] = useState("");
+
+  useEffect(() => {
+    const sub = UploadModal$.subscribe((exec) => {
+      setExec(exec);
+      setShow(true);
+    });
+    return () => sub.unsubscribe();
+  }, []);
+  return (
+    <Modal title={"上传新的 " + exec} visible={show} onCancel={() => setShow(false)} footer={<Button>关闭</Button>}>
+      <Upload
+        action={`/api/service/${exec}/upload`}
+        style={{ margin: "10px 0" }}
+        draggable={true}
+        dragMainText={"点击上传文件或拖拽文件到这里"}
+        name="file"
+        ref={ref}
+        fileName="binary"
+        afterUpload={(result) => {
+          setLoading(false);
+          if (result.response.error) {
+            Toast.error(result.response.error);
+          } else {
+            Toast.info("完成");
+          }
+          return {};
+        }}
+        beforeUpload={() => {
+          setLoading(true);
+          return true;
+        }}
+        onFileChange={(files) => {
+          if (files.length > 0) {
+            setFile(files[0]);
+          } else {
+            setFile(null);
+          }
+        }}
+        limit={1}
+        itemStyle={{ width: "100%" }}
+      ></Upload>
+      <Button
+        icon={<IconRefresh />}
+        loading={loading}
+        disabled={!file}
+        onClick={async () => {
+          ref.current?.upload();
+        }}
+      >
+        更新
+      </Button>
+    </Modal>
   );
 }

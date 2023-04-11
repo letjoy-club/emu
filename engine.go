@@ -30,11 +30,17 @@ func (e *Engine) Init(mode Mode, services []*Service) {
 	go func() {
 		<-c
 		e.lock.Lock()
+		wg := sync.WaitGroup{}
+		wg.Add(len(e.services))
 		for _, s := range e.services {
-			s.runner.Stop()
+			go func(s *Service) {
+				s.runner.Stop()
+				wg.Done()
+			}(s)
 		}
-		e.lock.Unlock()
+		wg.Wait()
 
+		e.lock.Unlock()
 		os.Exit(0)
 	}()
 }

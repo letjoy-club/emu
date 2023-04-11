@@ -6,6 +6,6 @@ import (
 
 func ProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{
-		Setpgid: true,
+		Setpgid: false,
 	}
 }

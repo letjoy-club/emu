@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -189,7 +188,7 @@ func NewRunner(service *Service, mode Mode) *Runner {
 	}
 	cmd := exec.Command(exe, service.Args...)
 	if service.Packed() {
-		cmd.Dir = filepath.Join("service", service.Folder)
+		cmd.Dir = service.ServiceFolder()
 	} else {
 		cmd.Dir = "service"
 	}

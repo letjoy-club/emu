@@ -126,23 +126,48 @@ func main() {
 							return
 						}
 						defer fileResume.Close()
-						filename, uploadErr := UploadSmallFiles(service.Exec, "binary", fileResume)
+						var filename string
+						var uploadErr error
+						if service.Packed() {
+							filename, uploadErr = UploadSmallFiles(service.Exec+".tar.gz", "binary", fileResume)
+						} else {
+							filename, uploadErr = UploadSmallFiles(service.Exec, "binary", fileResume)
+						}
 						if uploadErr != nil {
 							fmt.Println("file size:", fileHeader.Size)
 							render.JSON(w, r, NewError(uploadErr))
 							return
 						}
-						os.Chmod(filename, 0777)
-						if _, err := CopyFile(service.ExecPath(), service.ExecPath()+".bak"); err != nil {
-							render.JSON(w, r, err)
-							return
+						if service.Packed() {
+							serviceFolder := service.ServiceFolder()
+							if _, err := os.Stat(serviceFolder); err == nil {
+								os.RemoveAll(serviceFolder + ".bak")
+								os.Rename(serviceFolder, serviceFolder+".bak")
+							}
+
+						} else {
+							// 如果是二进制文件
+							if _, err := CopyFile(service.ExecPath(), service.ExecPath()+".bak"); err != nil {
+								render.JSON(w, r, err)
+								return
+							}
 						}
 
 						engine.StopService(name)
 
-						if err := os.Rename(filename, service.ExecPath()); err != nil {
-							render.JSON(w, r, NewError(err))
-							return
+						if service.Packed() {
+							// 如果是压缩包，直接解压
+							serviceFolder := service.ServiceFolder()
+							if err := ExtractTarGz(filename, serviceFolder); err != nil {
+								render.JSON(w, r, NewError(err))
+								return
+							}
+						} else {
+							// 如果是二进制文件，需要手动覆盖
+							if err := os.Rename(filename, service.ExecPath()); err != nil {
+								render.JSON(w, r, NewError(err))
+								return
+							}
 						}
 						if err := engine.StartService(name); err != nil {
 							render.JSON(w, r, NewError(err))
@@ -183,14 +208,6 @@ func main() {
 						return
 					}
 					hub.Join(name, conn)
-					// for {
-					// 	_, _, err := conn.ReadMessage()
-					// 	if err != nil {
-					// 		fmt.Println("err to leave", err)
-					// 		hub.Leave(conn)
-					// 		return
-					// 	}
-					// }
 				})
 				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
 					name := chi.URLParam(r, "service")

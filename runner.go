@@ -6,8 +6,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/process"
@@ -89,25 +91,29 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup)
 		} else {
 			str := string(content[:n])
 			hub.msgC <- Msg{Content: str, Channel: r.exec}
-			logger.Println(str)
+			logger.Println("> ", str)
 		}
 	}
 }
 
 func (r *Runner) Stop() error {
 	if r.cmd.Process != nil {
-		if r.cmd.ProcessState != nil && r.cmd.ProcessState.Exited() {
-			return nil
+		defer func() { r.cmd.Process = nil }()
+		if err := r.cmd.Process.Signal(os.Interrupt); err != nil {
+			fmt.Println("failed to send signal", err)
 		}
-		r.cmd.Process.Signal(os.Interrupt)
 		time.Sleep(time.Millisecond * 500)
 		defer r.onStop()
-		if r.cmd.ProcessState == nil || r.cmd.ProcessState.Exited() {
-			return nil
+		if err := r.cmd.Process.Kill(); err != nil {
+			fmt.Println("failed to kill", err)
 		}
-		r.cmd.Process.Kill()
+		// r.cmd.Process.Wait()
 		time.Sleep(time.Millisecond * 100)
-		return r.cmd.Process.Release()
+
+		if err := syscall.Kill(-r.cmd.Process.Pid, syscall.SIGKILL); err != nil {
+			return err
+		}
+		r.cmd.Process.Release()
 	}
 	return nil
 }
@@ -177,13 +183,20 @@ func (r *Runner) Start() error {
 }
 
 func NewRunner(service *Service, mode Mode) *Runner {
+	os.Chmod(service.ExecPath(), 0777)
 	exe := service.Exec
 	if !strings.HasPrefix(service.Exec, "./") {
 		exe = "./" + service.Exec
 	}
 	cmd := exec.Command(exe, service.Args...)
-	cmd.Dir = "service"
-	cmd.Env = service.Env
+	if service.Packed() {
+		cmd.Dir = filepath.Join("service", service.Folder)
+	} else {
+		cmd.Dir = "service"
+	}
+	envs := append(os.Environ(), service.Env...)
+	cmd.Env = envs
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	return &Runner{
 		cmd:  cmd,

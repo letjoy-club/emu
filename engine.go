@@ -40,7 +40,10 @@ func (e *Engine) StartService(exec string) error {
 	e.lock.Lock()
 	defer e.lock.Unlock()
 
-	service.runner.Stop()
+	if err := service.runner.Stop(); err != nil {
+		fmt.Println("failed to stop service", exec, err)
+	}
+
 	service.runner = NewRunner(service, e.mode)
 	return service.runner.Start()
 }

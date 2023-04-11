@@ -132,8 +132,9 @@ func (h *NotificationHub) Start() {
 				logger = NewCircularBuffer(200)
 				h.loggers[msg.Channel] = logger
 			}
-			logger.Write([]byte(msg.Content))
-			h.broadcast(msg.Channel, []byte(msg.Content))
+			data := []byte(msg.Content)
+			logger.Write(data)
+			h.broadcast(msg.Channel, data)
 
 		case sendAll := <-h.sendAllC:
 			h.sendAll(sendAll.client, sendAll.Channel)

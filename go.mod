@@ -8,6 +8,7 @@ require (
 	github.com/go-chi/render v1.0.2
 	github.com/gorilla/websocket v1.5.0
 	github.com/h2non/filetype v1.1.3
+	github.com/otiai10/copy v1.10.0
 	github.com/shirou/gopsutil/v3 v3.23.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1

@@ -45,6 +45,8 @@ type Service struct {
 	Tag  string `yaml:"tag" json:"tag"`
 	Exec string `yaml:"exec" json:"exec"`
 
+	Folder string `yaml:"folder" json:"folder"`
+
 	Env  []string `yaml:"env" json:"env"`
 	Args []string `yaml:"args" json:"args"`
 
@@ -83,7 +85,18 @@ type ServiceWithProcess struct {
 	Connections []string `json:"connections"`
 }
 
+func (s *Service) Packed() bool {
+	return s.Folder != ""
+}
+
+func (s *Service) ServiceFolder() string {
+	return filepath.Join("service", s.Folder)
+}
+
 func (s *Service) ExecPath() string {
+	if s.Packed() {
+		return filepath.Join("service", s.Folder, s.Exec)
+	}
 	return filepath.Join("service", s.Exec)
 }
 

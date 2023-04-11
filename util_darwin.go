@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/h2non/filetype"
+	cp "github.com/otiai10/copy"
 )
 
 func UploadSmallFiles(filename string, folder string, file multipart.File) (ret string, err error) {
@@ -23,13 +24,23 @@ func UploadSmallFiles(filename string, folder string, file multipart.File) (ret 
 	io.Copy(out, file)
 
 	kind, _ := filetype.MatchFile(filesDir)
-	if kind.Extension != "macho" {
-		return "", errors.New("file is not macho")
+	if kind.Extension != "macho" && kind.Extension != "gz" {
+		return "", errors.New("file is not macho or gz, got: " + kind.Extension)
 	}
 	return filesDir, nil
 }
 
 func CopyFile(src, dst string) (written int64, err error) {
+	if stat, err := os.Stat(src); err != nil {
+		return 0, err
+	} else {
+		// 如果是目录
+		if stat.IsDir() {
+			err = cp.Copy(src, dst)
+			return 0, err
+		}
+	}
+
 	srcFile, err := os.Open(src)
 	if err != nil {
 		return

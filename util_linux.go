@@ -24,8 +24,8 @@ func UploadSmallFiles(filename string, folder string, file multipart.File) (ret 
 	io.Copy(out, file)
 
 	kind, _ := filetype.MatchFile(filesDir)
-	if kind.Extension != "elf" || kind.Extension != "gz" {
-		return "", errors.New("file is not elf or tar.gz")
+	if kind.Extension != "elf" && kind.Extension != "gz" {
+		return "", errors.New("file is not elf or tar.gz, got: " + kind.Extension)
 	}
 	return filesDir, nil
 }

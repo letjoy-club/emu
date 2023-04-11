@@ -102,12 +102,11 @@ func (r *Runner) Stop() error {
 		if err := r.cmd.Process.Signal(os.Interrupt); err != nil {
 			fmt.Println("failed to send signal", err)
 		}
-		time.Sleep(time.Millisecond * 500)
+		time.Sleep(time.Millisecond * 100)
 		defer r.onStop()
 		if err := r.cmd.Process.Kill(); err != nil {
 			fmt.Println("failed to kill", err)
 		}
-		// r.cmd.Process.Wait()
 		time.Sleep(time.Millisecond * 100)
 
 		if err := syscall.Kill(-r.cmd.Process.Pid, syscall.SIGKILL); err != nil {
@@ -196,7 +195,7 @@ func NewRunner(service *Service, mode Mode) *Runner {
 	}
 	envs := append(os.Environ(), service.Env...)
 	cmd.Env = envs
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
+	cmd.SysProcAttr = ProcAttr()
 
 	return &Runner{
 		cmd:  cmd,

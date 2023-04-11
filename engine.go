@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 )
 
 type Engine struct {
@@ -21,6 +24,19 @@ func (e *Engine) Init(mode Mode, services []*Service) {
 		s.runner = runner
 	}
 	e.services = services
+
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		e.lock.Lock()
+		for _, s := range e.services {
+			s.runner.Stop()
+		}
+		e.lock.Unlock()
+
+		os.Exit(0)
+	}()
 }
 
 func (e *Engine) GetService(exec string) *Service {

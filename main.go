@@ -83,6 +83,9 @@ func main() {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.BasicAuth("letjoy", config.AccountMap()))
+		r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
+			render.JSON(w, r, NewData(config.Name))
+		})
 		r.Route("/service", func(r chi.Router) {
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				render.JSON(w, r, NewData(config.Services))

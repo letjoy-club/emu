@@ -26,9 +26,11 @@ type Runner struct {
 	onStart func()
 	onStop  func()
 
+	fdNum       int
 	mem         int
 	cpu         float64
 	connections []string
+	paths       []string
 	lastCheck   time.Time
 }
 
@@ -53,12 +55,8 @@ type File struct {
 
 func (r *Runner) LogFiles() []File {
 	files := []File{
-		{
-			Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stdout),
-		},
-		{
-			Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stderr),
-		},
+		{Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stdout)},
+		{Name: fmt.Sprintf("%s-%s.%s.log", r.exec, r.mode, Stderr)},
 	}
 	ret := []File{}
 	for _, file := range files {
@@ -124,6 +122,16 @@ func (r *Runner) checkStat() {
 		return
 	}
 
+	handlers, _ := r.process.OpenFiles()
+	paths := []string{}
+	for _, handler := range handlers {
+		paths = append(paths, handler.Path)
+	}
+	r.paths = paths
+
+	fdNum, _ := r.process.NumFDs()
+	r.fdNum = int(fdNum)
+
 	mem, err := r.process.MemoryInfo()
 	if err == nil {
 		r.mem = int(mem.RSS)
@@ -187,6 +195,7 @@ func NewRunner(service *Service, mode Mode) *Runner {
 		exe = "./" + service.Exec
 	}
 	cmd := exec.Command(exe, service.Args...)
+	fmt.Println(exe, service.Args)
 	if service.Packed() {
 		cmd.Dir = service.ServiceFolder()
 	} else {
@@ -201,12 +210,11 @@ func NewRunner(service *Service, mode Mode) *Runner {
 		name: service.Name,
 		exec: service.Exec,
 		mode: mode,
-		onStart: func() {
-			service.Running = true
-		},
-		onStop: func() {
-			service.Running = false
-		},
+
+		onStart: func() { service.Running = true },
+		onStop:  func() { service.Running = false },
+
 		connections: []string{},
+		paths:       []string{},
 	}
 }

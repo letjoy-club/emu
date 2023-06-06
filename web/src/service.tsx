@@ -1,4 +1,16 @@
-import { Button, ButtonGroup, Dropdown, Modal, Space, Spin, Tag, Toast, Upload } from "@douyinfe/semi-ui";
+import {
+  Button,
+  ButtonGroup,
+  Dropdown,
+  List,
+  Modal,
+  Popover,
+  Space,
+  Spin,
+  Tag,
+  Toast,
+  Upload,
+} from "@douyinfe/semi-ui";
 import { useContext, useEffect, useRef, useState } from "react";
 import { IconRefresh, IconStop, IconPlay, IconTerminal, IconFile, IconUpload } from "@douyinfe/semi-icons";
 import { context } from "./context";
@@ -14,7 +26,10 @@ export type Service = {
   cpu: number;
   pid: number;
   tag: string;
+  fdNum: number;
+
   connections: string[];
+  paths: string[];
 };
 
 type LogFile = {
@@ -24,7 +39,6 @@ type LogFile = {
 
 export function Service({ service }: { service: Service }) {
   const [loading, setLoading] = useState(false);
-  const ref = useRef<Upload>(null);
   const ctx = useContext(context);
   const [logLoading, setLogLoading] = useState(false);
   const [logFiles, setLogFiles] = useState<LogFile[]>([]);
@@ -38,24 +52,27 @@ export function Service({ service }: { service: Service }) {
   return (
     <div>
       {service.running ? (
-        <Space wrap>
+        <Space wrap style={{ marginBottom: 8 }}>
           {tags}
-          <Tag type="ghost">
-            <>PID：{service.pid}</>
+          <Tag type="solid">
+            <>PID: {service.pid}</>
           </Tag>
-          <Tag type="ghost">
-            <>内存：{filesize(service.mem)}</>
+          <Tag type="solid">
+            <>内存: {filesize(service.mem)}</>
           </Tag>
-          <Tag type="ghost">
-            <>CPU：{service.cpu.toFixed(3)}%</>
+          <Tag type="solid">
+            <>CPU: {service.cpu.toFixed(2)}%</>
           </Tag>
+          <PathCard paths={service.paths}>
+            <Tag color="teal" type="solid">
+              <>句柄数: {service.fdNum}</>
+            </Tag>
+          </PathCard>
         </Space>
       ) : null}
       <div style={{ display: "flex" }}>
         <ButtonGroup>
-          <Button icon={<IconUpload />} onClick={() => UploadModal$.next(service.exec)}>
-            上传
-          </Button>
+          <Button icon={<IconUpload />} onClick={() => UploadModal$.next(service.exec)} />
           {service.running ? (
             <Button
               loading={loading}
@@ -75,9 +92,7 @@ export function Service({ service }: { service: Service }) {
                   .finally(() => ctx.update());
               }}
               type="danger"
-            >
-              停止
-            </Button>
+            />
           ) : (
             <Button
               loading={loading}
@@ -97,9 +112,7 @@ export function Service({ service }: { service: Service }) {
                   .finally(() => ctx.update());
               }}
               type="secondary"
-            >
-              开始
-            </Button>
+            />
           )}
         </ButtonGroup>
         <div style={{ flex: 1 }}></div>
@@ -150,7 +163,7 @@ export function Service({ service }: { service: Service }) {
               )
             }
           >
-            <Button icon={<IconFile />}>日志</Button>
+            <Button icon={<IconFile />} />
           </Dropdown>
           <Button icon={<IconTerminal />} onClick={() => ctx.setExec(service.exec)}>
             输出
@@ -178,7 +191,12 @@ export function UploadModal() {
     return () => sub.unsubscribe();
   }, []);
   return (
-    <Modal title={"上传新的 " + exec} visible={show} onCancel={() => setShow(false)} footer={<Button>关闭</Button>}>
+    <Modal
+      title={"上传新的 " + exec}
+      visible={show}
+      onCancel={() => setShow(false)}
+      footer={<Button onClick={() => setShow(false)}>关闭</Button>}
+    >
       <Upload
         action={`/api/service/${exec}/upload`}
         style={{ margin: "10px 0" }}
@@ -221,5 +239,16 @@ export function UploadModal() {
         更新
       </Button>
     </Modal>
+  );
+}
+
+function PathCard({ paths, children }: React.PropsWithChildren<{ paths: string[] }>) {
+  return (
+    <Popover
+      showArrow
+      content={<List size="small" dataSource={paths} renderItem={(item) => <List.Item>{item}</List.Item>} />}
+    >
+      {children}
+    </Popover>
   );
 }

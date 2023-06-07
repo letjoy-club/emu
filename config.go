@@ -1,12 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"os"
-	"path"
 	"path/filepath"
-	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -31,45 +29,21 @@ func readConfigFromFile(configPath string) (*Config, error) {
 		config.MetaVars = map[string]string{}
 	}
 
-	re := regexp.MustCompile(`@(\S+)`)
+	keys := lo.Keys(config.MetaVars)
+	sort.Slice(keys, func(i, j int) bool {
+		return len(keys[i]) > len(keys[j])
+	})
+
 	for _, s := range config.Services {
 		s.Env = lo.Map(s.Env, func(env string, i int) string {
-			for key, value := range config.MetaVars {
-				env = strings.ReplaceAll(env, key, value)
+			for _, key := range keys {
+				env = strings.ReplaceAll(env, key, config.MetaVars[key])
 			}
 			return env
 		})
-
-		if s.Args != nil {
-			s.Args = lo.Map(s.Args, func(arg string, i int) string {
-				results := re.FindAllString(arg, -1)
-				if len(results) >= 1 {
-					for _, result := range results {
-						err := ReplaceMetaFile(result, config.MetaVars)
-						if err != nil {
-							continue
-						}
-					}
-				}
-				return arg
-			})
-		}
 	}
 
 	return &config, err
-}
-
-func ReplaceMetaFile(file string, metaVars map[string]string) error {
-	filePath := strings.TrimPrefix(file, "@")
-	data, err := os.ReadFile(path.Join("service", filePath))
-	if err != nil {
-		return err
-	}
-	for key, value := range metaVars {
-		data = bytes.ReplaceAll(data, []byte(key), []byte(value))
-	}
-	os.WriteFile(path.Join("service", "@"+filePath), data, 0644)
-	return nil
 }
 
 func mkdir() {

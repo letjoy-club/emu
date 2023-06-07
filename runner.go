@@ -1,16 +1,21 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
+	"path"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/shirou/gopsutil/v3/process"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -188,14 +193,56 @@ func (r *Runner) Start() error {
 	return nil
 }
 
-func NewRunner(service *Service, mode Mode) *Runner {
+var re = regexp.MustCompile(`@(\S+)`)
+
+func processConfig(args []string, meta map[string]string) {
+	if args == nil {
+		return
+	}
+	lo.ForEach(args, func(arg string, i int) {
+		results := re.FindAllString(arg, -1)
+		if len(results) >= 1 {
+			for _, result := range results {
+				err := ReplaceMetaFile(result, meta)
+				if err != nil {
+					continue
+				}
+			}
+		}
+	})
+}
+
+func ReplaceMetaFile(file string, metaVars map[string]string) error {
+	filePath := strings.TrimPrefix(file, "@")
+	data, err := os.ReadFile(path.Join("service", filePath))
+	if err != nil {
+		return err
+	}
+	keys := lo.Keys(metaVars)
+	sort.Slice(keys, func(i, j int) bool {
+		return len(keys[i]) > len(keys[j])
+	})
+
+	for _, key := range keys {
+		value := metaVars[key]
+		data = bytes.ReplaceAll(data, []byte(key), []byte(value))
+	}
+	os.WriteFile(path.Join("service", "@"+filePath), data, 0644)
+	return nil
+}
+
+func NewRunner(service *Service, mode Mode, meta map[string]string) *Runner {
+	processConfig(service.Args, meta)
 	os.Chmod(service.ExecPath(), 0777)
 	exe := service.Exec
 	if !strings.HasPrefix(service.Exec, "./") {
 		exe = "./" + service.Exec
 	}
 	cmd := exec.Command(exe, service.Args...)
-	fmt.Println(exe, service.Args)
+	fmt.Println("$", exe, strings.Join(service.Args, " "))
+	for _, env := range service.Env {
+		fmt.Println(" > ", env)
+	}
 	if service.Packed() {
 		cmd.Dir = service.ServiceFolder()
 	} else {

@@ -10,6 +10,7 @@ import (
 
 type Engine struct {
 	services []*Service
+	meta     map[string]string
 
 	lock sync.Mutex
 	mode Mode
@@ -17,9 +18,9 @@ type Engine struct {
 
 var ErrServiceNotFound = fmt.Errorf("service not found")
 
-func (e *Engine) Init(mode Mode, services []*Service) {
+func (e *Engine) Init(mode Mode, services []*Service, meta map[string]string) {
 	for _, s := range services {
-		runner := NewRunner(s, mode)
+		runner := NewRunner(s, mode, meta)
 		runner.Start()
 		s.runner = runner
 	}
@@ -66,7 +67,7 @@ func (e *Engine) StartService(exec string) error {
 		fmt.Println("failed to stop service", exec, err)
 	}
 
-	service.runner = NewRunner(service, e.mode)
+	service.runner = NewRunner(service, e.mode, e.meta)
 	return service.runner.Start()
 }
 
@@ -86,6 +87,6 @@ func (e *Engine) Restart(exec string) error {
 		return ErrServiceNotFound
 	}
 	service.runner.Stop()
-	service.runner = NewRunner(service, e.mode)
+	service.runner = NewRunner(service, e.mode, e.meta)
 	return service.runner.Start()
 }

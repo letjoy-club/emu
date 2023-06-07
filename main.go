@@ -58,7 +58,7 @@ func main() {
 
 	go hub.Start()
 	engine := Engine{}
-	engine.Init(config.Mode, config.Services)
+	engine.Init(config.Mode, config.Services, config.MetaVars)
 
 	r := chi.NewRouter()
 	// r.Use(middleware.DefaultLogger)

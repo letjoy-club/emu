@@ -6,7 +6,7 @@ import (
 )
 
 type CircularBuffer struct {
-	sync.Mutex
+	mu       sync.Mutex
 	buffer   []bytes.Buffer
 	capacity int
 	head     int
@@ -20,26 +20,43 @@ func NewCircularBuffer(capacity int) *CircularBuffer {
 	}
 }
 
-func (c *CircularBuffer) Write(p []byte) (n int, err error) {
-	c.Lock()
-	defer c.Unlock()
+func (c *CircularBuffer) Write(p []byte) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	if c.size == c.capacity {
-		c.head = (c.head + 1) % c.capacity
-	} else {
+	if c.size < c.capacity {
 		c.size++
 	}
 
-	return c.buffer[c.head].Write(p)
+	c.buffer[c.head].Reset()
+	c.buffer[c.head].Write(p)
+
+	c.head = (c.head + 1) % c.capacity
+}
+
+func (c *CircularBuffer) Reset() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.head = 0
+	c.size = 0
 }
 
 func (c *CircularBuffer) GetAll() [][]byte {
-	c.Lock()
-	defer c.Unlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-	var result [][]byte
-	for i := 0; i < c.size; i++ {
-		result = append(result, c.buffer[(c.head+i)%c.capacity].Bytes())
+	result := make([][]byte, c.size)
+
+	if c.size < c.capacity {
+		for i := 0; i < c.size; i++ {
+			result[i] = c.buffer[i].Bytes()
+		}
+		return result
+	} else {
+		for i := 0; i < c.capacity; i++ {
+			result[i] = c.buffer[(i+c.head)%c.capacity].Bytes()
+		}
 	}
 	return result
 }

@@ -1,25 +1,26 @@
-import { Badge, Collapse, Tag } from "@douyinfe/semi-ui";
+import { Badge, Button, Collapse, Tag } from "@douyinfe/semi-ui";
 import { useEffect, useState } from "react";
-import { Service, UploadModal } from "./service";
+import { IService, Service, UploadModal } from "./service";
 import { Typography } from "@douyinfe/semi-ui";
 import { context } from "./context";
 import { WebLog } from "./terminal";
 import { TagColor } from "@douyinfe/semi-ui/lib/es/tag";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import { IconRefresh } from "@douyinfe/semi-icons";
 const { Title } = Typography;
 
 const Colors: TagColor[] = ["blue", "cyan", "green", "indigo", "orange", "pink", "purple"];
 const tagColors: Map<string, TagColor> = new Map();
 
 function App() {
-  const [services, setServices] = useState<Service[]>([]);
+  const [services, setServices] = useState<IService[]>([]);
   const [exec, setExec] = useState("");
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json() as Promise<{ data: string }>)
       .then((r) => (document.title = r.data));
     fetch("/api/service")
-      .then((r) => r.json() as Promise<{ data: Service[] }>)
+      .then((r) => r.json() as Promise<{ data: IService[] }>)
       .then((r) => {
         for (const service of r.data) {
           if (!tagColors.has(service.tag)) {
@@ -31,7 +32,7 @@ function App() {
       });
     const timer = setInterval(() => {
       fetch("/api/service")
-        .then((r) => r.json() as Promise<{ data: Service[] }>)
+        .then((r) => r.json() as Promise<{ data: IService[] }>)
         .then((r) => setServices(r.data));
     }, 2000);
     return () => clearInterval(timer);
@@ -41,14 +42,14 @@ function App() {
       value={{
         update: () => {
           fetch("/api/service")
-            .then((r) => r.json() as Promise<{ data: Service[] }>)
+            .then((r) => r.json() as Promise<{ data: IService[] }>)
             .then((r) => setServices(r.data));
         },
         setExec,
       }}
     >
       <PanelGroup direction="horizontal">
-        <Panel defaultSize={20} minSize={20}>
+        <Panel defaultSize={20} minSize={20} style={{ maxHeight: "100vh", overflowY: "auto" }}>
           <Title style={{ padding: 10 }}>服务管理</Title>
           <Collapse>
             {services.map((service, i) => (

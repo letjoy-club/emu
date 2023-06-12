@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -19,6 +21,8 @@ var upgrader = websocket.Upgrader{
 
 var hub = NotificationHub{}
 
+var LogNum = 200
+
 func init() {
 	hub.client2channel = make(map[*websocket.Conn]string)
 	hub.clients = make(map[string][]*websocket.Conn)
@@ -26,6 +30,13 @@ func init() {
 	hub.sendAllC = make(chan SendAll, 10)
 	hub.closeC = make(chan struct{})
 	hub.loggers = make(map[string]*CircularBuffer)
+	numStr, _ := os.LookupEnv("LOG_NUM")
+	if numStr != "" {
+		newLogNum, _ := strconv.Atoi(numStr)
+		if newLogNum > 0 {
+			LogNum = newLogNum
+		}
+	}
 }
 
 type NotificationHub struct {
@@ -123,13 +134,20 @@ func (h *NotificationHub) Close() {
 	close(h.closeC)
 }
 
+func (h *NotificationHub) Reset(channel string) {
+	logger, ok := h.loggers[channel]
+	if ok {
+		logger.Reset()
+	}
+}
+
 func (h *NotificationHub) Start() {
 	for {
 		select {
 		case msg := <-h.msgC:
 			logger := h.loggers[msg.Channel]
 			if logger == nil {
-				logger = NewCircularBuffer(200)
+				logger = NewCircularBuffer(LogNum)
 				h.loggers[msg.Channel] = logger
 			}
 			data := []byte(msg.Content)

@@ -24,6 +24,8 @@ func (e *Engine) Init(mode Mode, services []*Service, meta map[string]string) {
 		runner.Start()
 		s.runner = runner
 	}
+	e.meta = meta
+	e.mode = mode
 	e.services = services
 
 	c := make(chan os.Signal)

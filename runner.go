@@ -86,6 +86,7 @@ func (r *Runner) read(reader io.ReadCloser, channel Channel, wg *sync.WaitGroup)
 		MaxAge:     28,
 	}
 	logger := log.New(loggerOut, "", log.LstdFlags)
+	hub.Reset(r.exec)
 	for {
 		if n, err := reader.Read(content); err != nil {
 			wg.Done()

@@ -2,6 +2,9 @@ import { useEffect } from "react";
 import { FitAddon } from "xterm-addon-fit";
 import { Terminal } from "xterm";
 import "xterm/css/xterm.css";
+import { Button } from "@douyinfe/semi-ui";
+import { IconRefresh } from "@douyinfe/semi-icons";
+import { Subject } from "rxjs";
 
 let mode: string;
 if (!process.env.NODE_ENV || process.env.NODE_ENV === "development") {
@@ -10,9 +13,11 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV === "development") {
   mode = "prod";
 }
 
+const clear$ = new Subject<void>();
+
 export function WebLog({ exec }: { exec: string }) {
   useEffect(() => {
-    if (exec != "") {
+    if (exec !== "") {
       const fitAddon = new FitAddon();
       const terminal = new Terminal();
       terminal.loadAddon(fitAddon);
@@ -35,26 +40,41 @@ export function WebLog({ exec }: { exec: string }) {
       };
 
       window.addEventListener("resize", resize);
+
+      const sub = clear$.subscribe(() => terminal.clear());
       return () => {
         ws.close();
         terminal.dispose();
         window.removeEventListener("resize", resize);
+        sub.unsubscribe();
       };
     }
   }, [exec]);
 
   return (
-    <div
-      style={{
-        borderLeft: "1px solid #b1b1b1",
-        paddingLeft: 10,
-        background: "black",
-        flex: 1,
-        height: "100%",
-        boxSizing: "border-box",
-      }}
-    >
-      <div id="terminal" style={{ height: "100vh" }}></div>
-    </div>
+    <>
+      <div
+        style={{
+          borderLeft: "1px solid #b1b1b1",
+          paddingLeft: 10,
+          background: "black",
+          flex: 1,
+          height: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        <div id="terminal" style={{ height: "100vh" }}></div>
+      </div>
+      <Button
+        style={{ position: "fixed", top: 15, right: 15, paddingLeft: 8, paddingRight: 8 }}
+        type="secondary"
+        size="small"
+        theme="solid"
+        onClick={() => clear$.next()}
+        icon={<IconRefresh />}
+      >
+        清屏
+      </Button>
+    </>
   );
 }

@@ -17,7 +17,7 @@ import { context } from "./context";
 import { filesize } from "filesize";
 import { Subject } from "rxjs";
 
-export type Service = {
+export type IService = {
   name: string;
   exec: string;
   running: boolean;
@@ -37,7 +37,7 @@ type LogFile = {
   size: number;
 };
 
-export function Service({ service }: { service: Service }) {
+export function Service({ service }: { service: IService }) {
   const [loading, setLoading] = useState(false);
   const ctx = useContext(context);
   const [logLoading, setLogLoading] = useState(false);

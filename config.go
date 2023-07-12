@@ -68,11 +68,12 @@ type Config struct {
 }
 
 type Service struct {
-	Name    string `yaml:"name" json:"name"`
-	Tag     string `yaml:"tag" json:"tag"`
-	Exec    string `yaml:"exec" json:"exec"`
-	Running bool   `yaml:"-" json:"running"`
-	Folder  string `yaml:"folder" json:"folder"`
+	Name       string `yaml:"name" json:"name"`
+	Tag        string `yaml:"tag" json:"tag"`
+	Exec       string `yaml:"exec" json:"exec"`
+	Running    bool   `yaml:"-" json:"running"`
+	Folder     string `yaml:"folder" json:"folder"`
+	ConfigFile string `yaml:"config-file" json:"configFile"`
 
 	Env  []string `yaml:"env" json:"env"`
 	Args []string `yaml:"args" json:"args"`
@@ -96,6 +97,8 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 		FDNum:   s.runner.fdNum,
 		PID:     pid,
 
+		ConfigFile: s.ConfigFile,
+
 		Connections: s.runner.connections,
 		Paths:       s.runner.paths,
 	}
@@ -103,14 +106,15 @@ func (s *Service) MarshalJSON() ([]byte, error) {
 }
 
 type ServiceWithProcess struct {
-	PID     int     `json:"pid"`
-	Tag     string  `json:"tag"`
-	Name    string  `json:"name"`
-	Exec    string  `json:"exec"`
-	Running bool    `json:"running"`
-	Mem     int     `json:"mem"`
-	CPU     float64 `json:"cpu"`
-	FDNum   int     `json:"fdNum"`
+	PID        int     `json:"pid"`
+	Tag        string  `json:"tag"`
+	Name       string  `json:"name"`
+	ConfigFile string  `json:"configFile"`
+	Exec       string  `json:"exec"`
+	Running    bool    `json:"running"`
+	Mem        int     `json:"mem"`
+	CPU        float64 `json:"cpu"`
+	FDNum      int     `json:"fdNum"`
 
 	Connections []string `json:"connections"`
 	Paths       []string `json:"paths"`

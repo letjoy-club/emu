@@ -1,15 +1,22 @@
 import { Badge, Button, Collapse, Tag } from "@douyinfe/semi-ui";
 import { useEffect, useState } from "react";
-import { IService, Service, UploadModal } from "./service";
+import { ConfigSettingModal, IService, Service, UploadModal } from "./service";
 import { Typography } from "@douyinfe/semi-ui";
 import { context } from "./context";
 import { WebLog } from "./terminal";
 import { TagColor } from "@douyinfe/semi-ui/lib/es/tag";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { IconRefresh } from "@douyinfe/semi-icons";
 const { Title } = Typography;
 
-const Colors: TagColor[] = ["blue", "cyan", "green", "indigo", "orange", "pink", "purple"];
+const Colors: TagColor[] = [
+  "blue",
+  "cyan",
+  "green",
+  "indigo",
+  "orange",
+  "pink",
+  "purple",
+];
 const tagColors: Map<string, TagColor> = new Map();
 
 function App() {
@@ -17,8 +24,15 @@ function App() {
   const [exec, setExec] = useState("");
   useEffect(() => {
     fetch("/api/config")
-      .then((r) => r.json() as Promise<{ data: string }>)
-      .then((r) => (document.title = r.data));
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            data: { name: string; "metaVars": Record<string, string> };
+          }>
+      )
+      .then((r) => {
+        document.title = r.data.name;
+      });
     fetch("/api/service")
       .then((r) => r.json() as Promise<{ data: IService[] }>)
       .then((r) => {
@@ -49,7 +63,11 @@ function App() {
       }}
     >
       <PanelGroup direction="horizontal">
-        <Panel defaultSize={20} minSize={20} style={{ maxHeight: "100vh", overflowY: "auto" }}>
+        <Panel
+          defaultSize={20}
+          minSize={20}
+          style={{ maxHeight: "100vh", overflowY: "auto" }}
+        >
           <Title style={{ padding: 10 }}>服务管理</Title>
           <Collapse>
             {services.map((service, i) => (
@@ -59,12 +77,20 @@ function App() {
                   <>
                     <div>
                       {service.running ? (
-                        <Badge dot style={{ backgroundColor: "var(--semi-color-success)" }} />
+                        <Badge
+                          dot
+                          style={{
+                            backgroundColor: "var(--semi-color-success)",
+                          }}
+                        />
                       ) : (
                         <Badge dot type="danger" />
                       )}
                       {service.tag ? (
-                        <Tag color={tagColors.get(service.tag)} style={{ marginLeft: 4 }}>
+                        <Tag
+                          color={tagColors.get(service.tag)}
+                          style={{ marginLeft: 4 }}
+                        >
                           {service.tag}
                         </Tag>
                       ) : null}
@@ -79,6 +105,7 @@ function App() {
             ))}
           </Collapse>
           <UploadModal />
+          <ConfigSettingModal />
         </Panel>
         <PanelResizeHandle className="ResizeHandle" />
         <Panel minSize={30}>

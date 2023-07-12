@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"strconv"
 
 	"github.com/go-chi/chi/middleware"
@@ -84,142 +85,62 @@ func main() {
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.BasicAuth("letjoy", config.AccountMap()))
 		r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
-			render.JSON(w, r, NewData(config.Name))
+			render.JSON(w, r, NewData(config))
 		})
 		r.Route("/service", func(r chi.Router) {
+			r.Use(middleware.DefaultLogger)
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				render.JSON(w, r, NewData(config.Services))
 			})
 
 			r.Route("/{service}", func(r chi.Router) {
+				r.Use(WithEngine(&engine))
+				r.Use(RequireServiceMiddleware)
 				r.Get("/clear", func(w http.ResponseWriter, r *http.Request) {
 					err := clearHistory()
 					render.JSON(w, r, NewData(err))
 				})
-				r.Get("/config", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					service := engine.GetService(name)
-					if service != nil {
-						render.JSON(w, r, NewData(service))
-					} else {
-						render.JSON(w, r, NewError(ErrServiceNotFound))
-					}
-				})
-				r.Post("/restart", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					err := engine.Restart(name)
-					if err == nil {
-						render.JSON(w, r, NewData(nil))
-					} else {
-						render.JSON(w, r, NewError(err))
-					}
-				})
-				r.Post("/upload", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					service := engine.GetService(name)
-					if service != nil {
-						defer r.Body.Close()
-						if err := r.ParseMultipartForm(1 << 20); err != nil {
-							render.JSON(w, r, NewError(err))
-							return
-						}
-						fileResume, fileHeader, err := r.FormFile("file")
-						if err != nil {
-							render.JSON(w, r, NewError(err))
-							return
-						}
-						defer fileResume.Close()
-						var filename string
-						var uploadErr error
-						if service.Packed() {
-							filename, uploadErr = UploadSmallFiles(service.Exec+".tar.gz", "binary", fileResume)
-						} else {
-							filename, uploadErr = UploadSmallFiles(service.Exec, "binary", fileResume)
-						}
-						if uploadErr != nil {
-							fmt.Println("file size:", fileHeader.Size)
-							render.JSON(w, r, NewError(uploadErr))
-							return
-						}
-						if service.Packed() {
-							serviceFolder := service.ServiceFolder()
-							if _, err := os.Stat(serviceFolder); err == nil {
-								os.RemoveAll(serviceFolder + ".bak")
-								os.Rename(serviceFolder, serviceFolder+".bak")
-							}
-
-						} else {
-							// 如果是二进制文件
-							if _, err := CopyFile(service.ExecPath(), service.ExecPath()+".bak"); err != nil {
-								render.JSON(w, r, err)
-								return
-							}
-						}
-
-						engine.StopService(name)
-
-						if service.Packed() {
-							// 如果是压缩包，直接解压
-							serviceFolder := service.ServiceFolder()
-							if err := ExtractTarGz(filename, serviceFolder); err != nil {
-								render.JSON(w, r, NewError(err))
-								return
-							}
-						} else {
-							// 如果是二进制文件，需要手动覆盖
-							if err := os.Rename(filename, service.ExecPath()); err != nil {
-								render.JSON(w, r, NewError(err))
-								return
-							}
-						}
-						if err := engine.StartService(name); err != nil {
-							render.JSON(w, r, NewError(err))
-							return
-						}
-						render.JSON(w, r, NewData(nil))
-					} else {
-						render.JSON(w, r, NewError(ErrServiceNotFound))
-					}
-				})
-				r.Post("/start", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					err := engine.StartService(name)
-					if err == nil {
-						render.JSON(w, r, NewData(nil))
-					} else {
-						render.JSON(w, r, NewError(err))
-					}
-				})
-				r.Post("/stop", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					err := engine.StopService(name)
-					if err == nil {
-						render.JSON(w, r, NewData(nil))
-					} else {
-						render.JSON(w, r, NewError(err))
-					}
-				})
-				r.Get("/output", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					if engine.GetService(name) == nil {
-						render.JSON(w, r, NewError(ErrServiceNotFound))
+				r.Get("/config", GetConfigHandler)
+				r.Get("/config-file", func(w http.ResponseWriter, r *http.Request) {
+					service := GetService(r)
+					if service.ConfigFile == "" {
+						render.JSON(w, r, NewError(ErrServiceConfigNotFound))
 						return
 					}
-					conn, err := upgrader.Upgrade(w, r, nil)
+					data, err := os.ReadFile(path.Join("service", service.ConfigFile))
 					if err != nil {
 						render.JSON(w, r, NewError(err))
 						return
 					}
-					hub.Join(name, conn)
+					render.PlainText(w, r, string(data))
 				})
-				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
-					name := chi.URLParam(r, "service")
-					service := engine.GetService(name)
-					if service != nil {
-						render.JSON(w, r, NewData(service.runner.LogFiles()))
-					} else {
-						render.JSON(w, r, NewError(ErrServiceNotFound))
+				r.Post("/config-file", func(w http.ResponseWriter, r *http.Request) {
+					service := GetService(r)
+					if service.ConfigFile == "" {
+						render.JSON(w, r, NewError(ErrServiceConfigNotFound))
+						return
 					}
+					data, err := io.ReadAll(r.Body)
+					if err != nil {
+						render.JSON(w, r, NewError(err))
+						return
+					}
+					defer r.Body.Close()
+					err = os.WriteFile(path.Join("service", service.ConfigFile), data, 0644)
+					if err != nil {
+						render.JSON(w, r, NewError(err))
+						return
+					}
+					render.JSON(w, r, NewData(nil))
+				})
+				r.Post("/restart", RestartHandler)
+				r.Post("/upload", UploadHandler)
+				r.Post("/start", StartHandler)
+				r.Post("/stop", StopHandler)
+				r.Get("/output", GetOutputHandler)
+				r.Get("/log", func(w http.ResponseWriter, r *http.Request) {
+					service := GetService(r)
+					render.JSON(w, r, NewData(service.runner.LogFiles()))
 				})
 				r.Get("/log/{file}", func(w http.ResponseWriter, r *http.Request) {
 					file := chi.URLParam(r, "file")
@@ -237,6 +158,7 @@ func main() {
 					io.Copy(w, reader)
 				})
 			})
+
 		})
 	})
 

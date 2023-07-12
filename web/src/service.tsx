@@ -4,6 +4,7 @@ import {
   Dropdown,
   List,
   Modal,
+  Notification,
   Popover,
   Space,
   Spin,
@@ -12,16 +13,28 @@ import {
   Upload,
 } from "@douyinfe/semi-ui";
 import { useContext, useEffect, useRef, useState } from "react";
-import { IconRefresh, IconStop, IconPlay, IconTerminal, IconFile, IconUpload } from "@douyinfe/semi-icons";
+import {
+  IconRefresh,
+  IconStop,
+  IconPlay,
+  IconTerminal,
+  IconFile,
+  IconSetting,
+  IconUpload,
+} from "@douyinfe/semi-icons";
 import { context } from "./context";
 import { filesize } from "filesize";
 import { Subject } from "rxjs";
+import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { langs } from "@uiw/codemirror-extensions-langs";
+import { autocompletion, CompletionContext } from "@codemirror/autocomplete";
 
 export type IService = {
   name: string;
   exec: string;
   running: boolean;
 
+  configFile: string;
   mem: number;
   cpu: number;
   pid: number;
@@ -36,6 +49,22 @@ type LogFile = {
   name: string;
   size: number;
 };
+
+const metaVars: { label: string; type: "constant"; info: string }[] = [];
+
+function completionFunc(ctx: CompletionContext) {
+  let before = ctx.matchBefore(/\w+/);
+  if (!ctx.explicit && !before) return null;
+  return {
+    from: before ? before.from : ctx.pos,
+    options: metaVars,
+    validFor: /^\w*$/,
+  };
+}
+
+const completions = autocompletion({
+  override: [completionFunc],
+});
 
 export function Service({ service }: { service: IService }) {
   const [loading, setLoading] = useState(false);
@@ -72,7 +101,16 @@ export function Service({ service }: { service: IService }) {
       ) : null}
       <div style={{ display: "flex" }}>
         <ButtonGroup>
-          <Button icon={<IconUpload />} onClick={() => UploadModal$.next(service.exec)} />
+          <Button
+            icon={<IconUpload />}
+            onClick={() => UploadModal$.next(service.exec)}
+          />
+          {service.configFile !== "" ? (
+            <Button
+              icon={<IconSetting />}
+              onClick={() => ConfigSettingModal$.next(service.exec)}
+            />
+          ) : null}
           {service.running ? (
             <Button
               loading={loading}
@@ -148,13 +186,18 @@ export function Service({ service }: { service: IService }) {
                       key={i}
                       type="secondary"
                       onClick={() => {
-                        window.open("/api/service/" + service.exec + "/log/" + f.name, "_blank");
+                        window.open(
+                          "/api/service/" + service.exec + "/log/" + f.name,
+                          "_blank"
+                        );
                       }}
                     >
                       <div>
                         <div>{f.name}</div>
                         <div style={{ fontSize: "0.8em" }}>
-                          <>{filesize(f.size, { base: 2, standard: "jedec" })}</>
+                          <>
+                            {filesize(f.size, { base: 2, standard: "jedec" })}
+                          </>
                         </div>
                       </div>
                     </Dropdown.Item>
@@ -165,7 +208,10 @@ export function Service({ service }: { service: IService }) {
           >
             <Button icon={<IconFile />} />
           </Dropdown>
-          <Button icon={<IconTerminal />} onClick={() => ctx.setExec(service.exec)}>
+          <Button
+            icon={<IconTerminal />}
+            onClick={() => ctx.setExec(service.exec)}
+          >
             输出
           </Button>
         </ButtonGroup>
@@ -242,13 +288,101 @@ export function UploadModal() {
   );
 }
 
-function PathCard({ paths, children }: React.PropsWithChildren<{ paths: string[] }>) {
+function PathCard({
+  paths,
+  children,
+}: React.PropsWithChildren<{ paths: string[] }>) {
   return (
     <Popover
       showArrow
-      content={<List size="small" dataSource={paths} renderItem={(item) => <List.Item>{item}</List.Item>} />}
+      content={
+        <List
+          size="small"
+          dataSource={paths}
+          renderItem={(item) => <List.Item>{item}</List.Item>}
+        />
+      }
     >
       {children}
     </Popover>
+  );
+}
+
+export const ConfigSettingModal$ = new Subject<string>();
+
+export function ConfigSettingModal() {
+  const [show, setShow] = useState(false);
+  const [service, setService] = useState<string>("");
+  const [config, setConfig] = useState<string>("");
+  const [currentConfig, setCurrentConfig] = useState<string>("");
+  const editor = useRef<ReactCodeMirrorRef>(null);
+
+  useEffect(() => {
+    fetch("/api/config", { method: "GET" })
+      .then((r) => r.json())
+      .then((res) => {
+        console.log(res.data);
+        for (const [key, value] of Object.entries(res.data.metaVars)) {
+          metaVars.push({
+            label: key,
+            info: value as string,
+            type: "constant",
+          });
+        }
+      });
+    const sub = ConfigSettingModal$.subscribe((service) => {
+      setService(service);
+      setShow(true);
+      fetch(`/api/service/${service}/config-file`, { method: "GET" })
+        .then((r) => r.text())
+        .then((res) => {
+          setConfig(res);
+          setCurrentConfig(res);
+        });
+    });
+    return () => sub.unsubscribe();
+  }, []);
+
+  return (
+    <Modal
+      size="small"
+      visible={show}
+      title={`配置 ${service}`}
+      onCancel={() => setShow(false)}
+      footer={null}
+      width={700}
+    >
+      <CodeMirror
+        value={config}
+        ref={editor}
+        onChange={(value) => setCurrentConfig(value)}
+        height="600px"
+        extensions={[langs.yaml(), completions]}
+      />
+      <ButtonGroup style={{ paddingTop: 10, paddingBottom: 10 }}>
+        <Button
+          onClick={() => {
+            fetch(`/api/service/${service}/config-file`, {
+              method: "POST",
+              body: currentConfig,
+            })
+              .then((res) => res.json())
+              .then(() => {
+                Notification.success({ title: "更新成功" });
+              });
+          }}
+        >
+          更新
+        </Button>
+        <Button
+          onClick={() => {
+            setConfig("");
+            setTimeout(() => setConfig(config), 10);
+          }}
+        >
+          重置
+        </Button>
+      </ButtonGroup>
+    </Modal>
   );
 }

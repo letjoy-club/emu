@@ -17,6 +17,7 @@ type Engine struct {
 }
 
 var ErrServiceNotFound = fmt.Errorf("service not found")
+var ErrServiceConfigNotFound = fmt.Errorf("service config not found")
 
 func (e *Engine) Init(mode Mode, services []*Service, meta map[string]string) {
 	for _, s := range services {

@@ -88,7 +88,6 @@ func main() {
 			render.JSON(w, r, NewData(config))
 		})
 		r.Route("/service", func(r chi.Router) {
-			r.Use(middleware.DefaultLogger)
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				render.JSON(w, r, NewData(config.Services))
 			})

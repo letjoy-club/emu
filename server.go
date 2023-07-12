@@ -30,9 +30,9 @@ type serviceKey struct{}
 
 func RequireServiceMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		name := chi.URLParam(r, "service")
+		exec := chi.URLParam(r, "service")
 		engine := GetEngine(r)
-		service := engine.GetService(name)
+		service := engine.GetService(exec)
 		if service == nil {
 			render.JSON(w, r, NewError(ErrServiceNotFound))
 			return
@@ -88,7 +88,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	engine.StopService(service.Name)
+	engine.StopService(service.Exec)
 
 	if service.Packed() {
 		// 如果是压缩包，直接解压
@@ -104,7 +104,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := engine.StartService(service.Name); err != nil {
+	if err := engine.StartService(service.Exec); err != nil {
 		render.JSON(w, r, NewError(err))
 		return
 	}
@@ -114,7 +114,7 @@ func UploadHandler(w http.ResponseWriter, r *http.Request) {
 func StartHandler(w http.ResponseWriter, r *http.Request) {
 	engine := GetEngine(r)
 	service := GetService(r)
-	if err := engine.StartService(service.Name); err != nil {
+	if err := engine.StartService(service.Exec); err != nil {
 		render.JSON(w, r, NewError(err))
 		return
 	}
@@ -124,7 +124,7 @@ func StartHandler(w http.ResponseWriter, r *http.Request) {
 func StopHandler(w http.ResponseWriter, r *http.Request) {
 	engine := GetEngine(r)
 	service := GetService(r)
-	if err := engine.StopService(service.Name); err != nil {
+	if err := engine.StopService(service.Exec); err != nil {
 		render.JSON(w, r, NewError(err))
 		return
 	}
@@ -134,7 +134,7 @@ func StopHandler(w http.ResponseWriter, r *http.Request) {
 func RestartHandler(w http.ResponseWriter, r *http.Request) {
 	engine := GetEngine(r)
 	service := GetService(r)
-	if err := engine.Restart(service.Name); err != nil {
+	if err := engine.Restart(service.Exec); err != nil {
 		render.JSON(w, r, NewError(err))
 		return
 	}
@@ -153,5 +153,5 @@ func GetOutputHandler(w http.ResponseWriter, r *http.Request) {
 		render.JSON(w, r, NewError(err))
 		return
 	}
-	hub.Join(service.Name, conn)
+	hub.Join(service.Exec, conn)
 }

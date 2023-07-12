@@ -26,6 +26,7 @@ import { context } from "./context";
 import { filesize } from "filesize";
 import { Subject } from "rxjs";
 import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
+import { Tooltip, hoverTooltip } from "@codemirror/view";
 import { langs } from "@uiw/codemirror-extensions-langs";
 import { autocompletion, CompletionContext } from "@codemirror/autocomplete";
 
@@ -53,7 +54,7 @@ type LogFile = {
 const metaVars: { label: string; type: "constant"; info: string }[] = [];
 
 function completionFunc(ctx: CompletionContext) {
-  let before = ctx.matchBefore(/\w+/);
+  let before = ctx.matchBefore(/\$\w+/);
   if (!ctx.explicit && !before) return null;
   return {
     from: before ? before.from : ctx.pos,
@@ -64,6 +65,29 @@ function completionFunc(ctx: CompletionContext) {
 
 const completions = autocompletion({
   override: [completionFunc],
+});
+
+export const wordHover = hoverTooltip((view, pos, side) => {
+  let { from, to, text } = view.state.doc.lineAt(pos);
+  let start = pos,
+    end = pos;
+  while (start > from && /[\$\w]/.test(text[start - from - 1])) start--;
+  while (end < to && /\w/.test(text[end - from])) end++;
+  if ((start == pos && side < 0) || (end == pos && side > 0)) return null;
+  const content = text.slice(start - from, end - from);
+  const found = metaVars.find((v) => v.label === content);
+  if (!found) return null;
+  return {
+    pos: start,
+    end,
+    above: true,
+    create(view) {
+      const dom = document.createElement("div");
+      dom.style.padding = "2px 6px";
+      dom.textContent = found.info;
+      return { dom };
+    },
+  };
 });
 
 export function Service({ service }: { service: IService }) {
@@ -357,7 +381,7 @@ export function ConfigSettingModal() {
         ref={editor}
         onChange={(value) => setCurrentConfig(value)}
         height="600px"
-        extensions={[langs.yaml(), completions]}
+        extensions={[langs.yaml(), completions, wordHover]}
       />
       <ButtonGroup style={{ paddingTop: 10, paddingBottom: 10 }}>
         <Button

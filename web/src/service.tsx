@@ -26,7 +26,7 @@ import { context } from "./context";
 import { filesize } from "filesize";
 import { Subject } from "rxjs";
 import CodeMirror, { ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { Tooltip, hoverTooltip } from "@codemirror/view";
+import { hoverTooltip } from "@codemirror/view";
 import { langs } from "@uiw/codemirror-extensions-langs";
 import { autocompletion, CompletionContext } from "@codemirror/autocomplete";
 
@@ -345,7 +345,6 @@ export function ConfigSettingModal() {
     fetch("/api/config", { method: "GET" })
       .then((r) => r.json())
       .then((res) => {
-        console.log(res.data);
         for (const [key, value] of Object.entries(res.data.metaVars)) {
           metaVars.push({
             label: key,
@@ -373,8 +372,9 @@ export function ConfigSettingModal() {
       visible={show}
       title={`配置 ${service}`}
       onCancel={() => setShow(false)}
+      closeOnEsc={false}
       footer={null}
-      width={700}
+      width={800}
     >
       <CodeMirror
         value={config}
@@ -391,9 +391,7 @@ export function ConfigSettingModal() {
               body: currentConfig,
             })
               .then((res) => res.json())
-              .then(() => {
-                Notification.success({ title: "更新成功" });
-              });
+              .then(() => Notification.success({ title: "更新成功" }));
           }}
         >
           更新

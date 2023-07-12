@@ -24,12 +24,7 @@ function App() {
   const [exec, setExec] = useState("");
   useEffect(() => {
     fetch("/api/config")
-      .then(
-        (r) =>
-          r.json() as Promise<{
-            data: { name: string; "metaVars": Record<string, string> };
-          }>
-      )
+      .then((r) => r.json() as Promise<{ data: { name: string } }>)
       .then((r) => {
         document.title = r.data.name;
       });
@@ -69,7 +64,7 @@ function App() {
           style={{ maxHeight: "100vh", overflowY: "auto" }}
         >
           <Title style={{ padding: 10 }}>服务管理</Title>
-          <Collapse>
+          <Collapse accordion>
             {services.map((service, i) => (
               <Collapse.Panel
                 key={i}
